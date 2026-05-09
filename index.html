@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mercedes Luxury Drive</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: Arial, sans-serif; user-select: none; touch-action: none; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 24px; color: #FFD700; font-weight: bold; background: rgba(0,0,0,0.7); padding: 10px 25px; border-radius: 30px; border: 2px solid #FFD700; z-index: 100; }
+        #controls { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; z-index: 100; }
+        .btn { width: 75px; height: 75px; background: rgba(255,255,255,0.3); border: 3px solid white; border-radius: 50%; color: white; font-weight: bold; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+        .btn-gas { background: rgba(0, 255, 0, 0.5); border-color: #0f0; }
+        .btn-brake { background: rgba(255, 0, 0, 0.5); border-color: #f00; width: 65px; height: 65px; }
+        .side { display: flex; gap: 15px; align-items: center; }
+    </style>
+</head>
+<body>
+    <div id="ui">SKOR: <span id="scoreVal">0</span></div>
+    <div id="controls">
+        <div class="side">
+            <div class="btn" id="btnLeft">←</div>
+            <div class="btn" id="btnRight">→</div>
+        </div>
+        <div class="side">
+            <div class="btn btn-gas" id="btnGas">GAZ</div>
+            <div class="btn btn-brake" id="btnBrake">FREN</div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // Hata ayıklama: Kütüphane yüklendi mi kontrol et
+        if (typeof THREE === 'undefined') {
+            alert("Kütüphane yüklenemedi! İnternet bağlantını kontrol et.");
+        }
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); 
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Işıklandırma
+        const light = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(light);
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(5, 10, 7);
+        scene.add(sun);
+
+        // Zemin
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), new THREE.MeshStandardMaterial({ color: 0x555555 }));
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
+
+        // Mercedes Grubu
+        const car = new THREE.Group();
+        const mat = new THREE.MeshStandardMaterial({ color: 0x000000, metalness: 0.8, roughness: 0.2 });
+        const body = new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 4), mat);
+        body.position.y = 0.5;
+        car.add(body);
+        const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.5, 2), mat);
+        cabin.position.set(0, 1, -0.2);
+        car.add(cabin);
+        scene.add(car);
+
+        // Botlar
+        let score = 0;
+        const bots = [];
+        for(let i=0; i<20; i++) {
+            const bot = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.5), new THREE.MeshStandardMaterial({color: 0xff0000}));
+            bot.position.set(Math.random()*80-40, 0.75, Math.random()*80-40);
+            scene.add(bot);
+            bots.push(bot);
+        }
+
+        // Kontroller
+        const input = { f: 0, b: 0, l: 0, r: 0 };
+        const setup = (id, key) => {
+            const el = document.getElementById(id);
+            el.ontouchstart = (e) => { e.preventDefault(); input[key] = 1; };
+            el.ontouchend = (e) => { e.preventDefault(); input[key] = 0; };
+            el.onmousedown = () => { input[key] = 1; };
+            el.onmouseup = () => { input[key] = 0; };
+        };
+        setup('btnGas', 'f'); setup('btnBrake', 'b'); setup('btnLeft', 'l'); setup('btnRight', 'r');
+
+        let speed = 0, rot = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            if(input.f) speed += 0.01; else if(input.b) speed -= 0.01; else speed *= 0.95;
+            if(Math.abs(speed) > 0.01) { if(input.l) rot += 0.03; if(input.r) rot -= 0.03; }
+            
+            car.rotation.y = rot;
+            car.position.x += Math.sin(rot) * speed;
+            car.position.z += Math.cos(rot) * speed;
+
+            bots.forEach((b, i) => {
+                if(car.position.distanceTo(b.position) < 1.5) {
+                    b.position.set(Math.random()*80-40, 0.75, Math.random()*80-40);
+                    score += 10;
+                    document.getElementById('scoreVal').innerText = score;
+                }
+            });
+
+            const offset = new THREE.Vector3(0, 4, -8).applyQuaternion(car.quaternion);
+            camera.position.copy(car.position).add(offset);
+            camera.lookAt(car.position);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
